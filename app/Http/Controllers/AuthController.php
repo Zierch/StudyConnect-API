@@ -55,9 +55,30 @@ class AuthController extends Controller
     public function getUserById($id)
     {
         $user = User::find($id);
-        if(!$user) {
+        if (!$user) {
             return response()->json(['message' => 'User not found'], 404);
         }
+
+        $requester = auth()->user();
+
+        // Profil sendiri selalu boleh; selain itu hanya untuk orang di kelas yang sama.
+        if ((int) $requester->id !== (int) $user->id && !$this->sharesAClass($requester, $user)) {
+            return response()->json(['message' => 'Anda tidak memiliki izin untuk melihat pengguna ini'], 403);
+        }
+
         return response()->json($user, 200);
+    }
+
+    /** Benar bila kedua pengguna berada di kelas yang sama (guru pengampu atau siswa anggota). */
+    private function sharesAClass(User $a, User $b): bool
+    {
+        $classIds = function (User $user) {
+            $taught = \App\Models\Classes::where('teacher_id', $user->id)->pluck('id');
+            $joined = $user->classes()->pluck('classes.id');
+
+            return $taught->merge($joined)->unique();
+        };
+
+        return $classIds($a)->intersect($classIds($b))->isNotEmpty();
     }
 }

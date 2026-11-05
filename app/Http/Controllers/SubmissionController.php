@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Assignment;
+use App\Http\Controllers\Concerns\ChecksClassAccess;
+use App\Models\Classes;
 use App\Models\Submission;
 use Illuminate\Http\Request;
 use Validator;
 
 class SubmissionController extends Controller
 {
+    use ChecksClassAccess;
+
     /**
      * Create a new submission.
      */
@@ -24,6 +28,9 @@ class SubmissionController extends Controller
         if (!$assignment) {
             return response()->json(['message' => 'Tugas tidak ditemukan'], 404);
         }
+
+        // Siswa hanya boleh mengumpulkan tugas dari kelas yang dia ikuti.
+        $this->assertCanViewClass(Classes::findOrFail($assignment->class_id));
 
         // Tentukan validasi berdasarkan tipe tugas
         $validatorRules = [];
@@ -82,9 +89,30 @@ class SubmissionController extends Controller
      */
     public function show($assignment_id)
     {
-        $submissions = Submission::where('assignment_id', $assignment_id)->latest()->get();
+        $assignment = Assignment::find($assignment_id);
+        if (!$assignment) {
+            return response()->json(['message' => 'Tugas tidak ditemukan'], 404);
+        }
 
-        return response()->json($submissions);
+        $user = auth()->user();
+        $class = Classes::findOrFail($assignment->class_id);
+
+        // Guru pemilik kelas melihat semua; siswa hanya pengumpulannya sendiri.
+        if ($user->role === 'teacher') {
+            $this->assertTeacherOwnsClass($class);
+            return response()->json(
+                Submission::where('assignment_id', $assignment_id)->latest()->get()
+            );
+        }
+
+        $this->assertCanViewClass($class);
+
+        return response()->json(
+            Submission::where('assignment_id', $assignment_id)
+                ->where('student_id', $user->id)
+                ->latest()
+                ->get()
+        );
     }
 
     
@@ -97,6 +125,18 @@ class SubmissionController extends Controller
 
         if (!$submission) {
             return response()->json(['message' => 'Submission tidak ditemukan'], 404);
+        }
+
+        $user = auth()->user();
+        $assignment = $submission->assignment;
+        if (!$assignment) {
+            return response()->json(['message' => 'Tugas tidak ditemukan'], 404);
+        }
+
+        if ($user->role === 'teacher') {
+            $this->assertTeacherOwnsClass(Classes::findOrFail($assignment->class_id));
+        } elseif ((int) $submission->student_id !== (int) $user->id) {
+            $this->deny('Anda tidak memiliki izin untuk melihat pengumpulan ini');
         }
 
         return response()->json($submission);
@@ -116,6 +156,12 @@ class SubmissionController extends Controller
         if (!$submission) {
             return response()->json(['message' => 'Submission tidak ditemukan'], 404);
         }
+
+        $assignment = $submission->assignment;
+        if (!$assignment) {
+            return response()->json(['message' => 'Tugas tidak ditemukan'], 404);
+        }
+        $this->assertTeacherOwnsClass(Classes::findOrFail($assignment->class_id));
 
         // Validasi nilai
         $validator = Validator::make($request->all(), [

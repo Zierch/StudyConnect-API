@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ChecksClassAccess;
 use App\Models\Classes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class ClassController extends Controller
 {
+    use ChecksClassAccess;
+
     /**
      * Store a newly created resource in storage.
      */
@@ -72,7 +75,22 @@ class ClassController extends Controller
         }
 
         $class = Classes::findOrFail($id);
-        $class->update($request->all());
+        $this->assertTeacherOwnsClass($class);
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:50',
+            'subject' => 'nullable|string|max:100',
+            'description' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // Hanya kolom ini yang boleh diubah; teacher_id, code, dan status tidak lewat sini.
+        $class->fill($request->only(['name', 'subject', 'description']));
+        $class->save();
+
         return response()->json($class);
     }
 
@@ -87,6 +105,7 @@ class ClassController extends Controller
         }
 
         $class = Classes::findOrFail($id);
+        $this->assertTeacherOwnsClass($class);
         $class->delete();
         return response()->json(['message' => 'Class deleted successfully']);
     }
@@ -164,6 +183,7 @@ class ClassController extends Controller
     public function getById($id)
     {
         $class = Classes::findOrFail($id);
+        $this->assertCanViewClass($class);
 
         return response()->json($class);
     }

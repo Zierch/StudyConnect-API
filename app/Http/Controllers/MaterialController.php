@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ChecksClassAccess;
+use App\Models\Classes;
 use App\Models\Material;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -10,6 +12,8 @@ use Validator;
 
 class MaterialController extends Controller
 {
+    use ChecksClassAccess;
+
     /**
      * Store a newly created resource in storage.
      */
@@ -19,6 +23,8 @@ class MaterialController extends Controller
         if ($user->role !== 'teacher') {
             return response()->json(['message' => 'Hanya guru yang dapat membuat materi'], 403);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($class_id));
 
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:100',
@@ -61,6 +67,8 @@ class MaterialController extends Controller
      */
     public function show($class_id)
     {
+        $this->assertCanViewClass(Classes::findOrFail($class_id));
+
         $materials = Material::where('class_id', $class_id)->latest()->get();
         return response()->json($materials);
     }
@@ -74,6 +82,8 @@ class MaterialController extends Controller
         if (!$material) {
             return response()->json(['message' => 'Materi tidak ditemukan'], 404);
         }
+
+        $this->assertCanViewClass(Classes::findOrFail($material->class_id));
 
         return response()->json($material);
     }
@@ -91,8 +101,10 @@ class MaterialController extends Controller
 
         $material = Material::find($id);
         if (!$material) {
-            return response()->json(['message' => 'Materi tidak ditemukan', $material], 404);
+            return response()->json(['message' => 'Materi tidak ditemukan'], 404);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($material->class_id));
 
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:100',
@@ -140,6 +152,8 @@ class MaterialController extends Controller
         if (!$materi) {
             return response()->json(['message' => 'Materi tidak ditemukan'], 404);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($materi->class_id));
 
         // Hapus file yang terupload
         if ($materi->attachment_path) {

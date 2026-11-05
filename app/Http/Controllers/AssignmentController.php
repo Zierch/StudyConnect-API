@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ChecksClassAccess;
 use App\Models\Assignment;
+use App\Models\Classes;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Storage;
@@ -10,6 +12,8 @@ use Validator;
 
 class AssignmentController extends Controller
 {
+    use ChecksClassAccess;
+
     /**
      * Store a newly created resource in storage.
      */
@@ -19,6 +23,8 @@ class AssignmentController extends Controller
         if ($user->role !== 'teacher') {
             return response()->json(['message' => 'Hanya guru yang dapat membuat tugas'], 403);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($class_id));
 
         // Validasi awal
         $validator = Validator::make($request->all(), [
@@ -97,6 +103,8 @@ class AssignmentController extends Controller
     public function show($class_id)
     {
         $user = auth()->user();
+        $this->assertCanViewClass(Classes::findOrFail($class_id));
+
         if ($user->role === 'student') {
             $assignments = Assignment::where('class_id', $class_id)
                 ->where('status', 'published')
@@ -119,6 +127,9 @@ class AssignmentController extends Controller
             return response()->json(['message' => 'Tugas tidak ditemukan'], 404);
         }
 
+        // Guru pemilik dan siswa anggota sama-sama boleh membuka detail tugas.
+        $this->assertCanViewClass(Classes::findOrFail($assignment->class_id));
+
         return response()->json($assignment);
     }
 
@@ -136,6 +147,8 @@ class AssignmentController extends Controller
         if (!$assignment) {
             return response()->json(['message' => 'Tugas tidak ditemukan'], 404);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($assignment->class_id));
 
         // Validasi awal
         $validator = Validator::make($request->all(), [
@@ -211,6 +224,8 @@ class AssignmentController extends Controller
         if (!$assignment) {
             return response()->json(['message' => 'Tugas tidak ditemukan'], 404);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($assignment->class_id));
 
         // Hapus file yang terupload
         if ($assignment->attachment_path) {

@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ChecksClassAccess;
 use App\Models\Announcement;
+use App\Models\Classes;
 use Illuminate\Http\Request;
 use Storage;
 use Validator;
 
 class AnnouncementController extends Controller
 {
+    use ChecksClassAccess;
+
     /**
      * Store a newly created resource in storage.
      */
@@ -18,6 +22,8 @@ class AnnouncementController extends Controller
         if ($user->role !== 'teacher') {
             return response()->json(['message' => 'Hanya guru yang dapat membuat pengumuman'], 403);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($class_id));
 
         $validator = Validator::make($request->all(), [
             'content' => 'required|string',
@@ -56,6 +62,8 @@ class AnnouncementController extends Controller
      */
     public function show($class_id)
     {
+        $this->assertCanViewClass(Classes::findOrFail($class_id));
+
         $announcement = Announcement::where('class_id', $class_id)->latest()->get();
         if (!$announcement) {
             return response()->json(['message' => 'Pengumuman tidak ditemukan'], 404);
@@ -72,6 +80,9 @@ class AnnouncementController extends Controller
         if (!$announcement) {
             return response()->json(['message' => 'Pengumuman tidak ditemukan'], 404);
         }
+
+        // Detail boleh dibaca guru pemilik maupun siswa anggota kelas.
+        $this->assertCanViewClass(Classes::findOrFail($announcement->class_id));
         return response()->json($announcement);
     }
 
@@ -89,6 +100,8 @@ class AnnouncementController extends Controller
         if (!$announcement) {
             return response()->json(['message' => 'Pengumuman tidak ditemukan'], 404);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($announcement->class_id));
 
         $validator = Validator::make($request->all(), [
             'content' => 'required|string',
@@ -133,6 +146,8 @@ class AnnouncementController extends Controller
         if (!$announcement) {
             return response()->json(['message' => 'Pengumuman tidak ditemukan'], 404);
         }
+
+        $this->assertTeacherOwnsClass(Classes::findOrFail($announcement->class_id));
 
         // Hapus file yang terupload
         if ($announcement->attachment_path) {
