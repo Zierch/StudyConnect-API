@@ -235,3 +235,19 @@ Jalankan `php artisan migrate --force` dan `php artisan storage:link` setelah de
 ## Lisensi
 
 MIT
+
+## Test
+
+```bash
+php artisan test
+```
+
+78 test (PHPUnit, SQLite in-memory) mencakup:
+
+- autentikasi: register, login, password di-hash, token dicabut saat logout
+- kelas: CRUD, kode undangan, gabung/keluar, arsip & pulihkan
+- tugas: validasi per tipe, skor maksimal, jadwal terbit
+- pengumuman dan materi: hanya guru yang menulis, siswa membaca
+- pengumpulan: esai dan unggah berkas, penilaian 0-100
+- otorisasi lintas kelas: guru lain tidak bisa menulis/menghapus/menilai, siswa
+  tidak bisa membaca kelas yang tidak diikuti
