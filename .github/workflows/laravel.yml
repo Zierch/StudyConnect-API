@@ -26,7 +26,7 @@ jobs:
       - name: Cache composer packages
         uses: actions/cache@v4
         with:
-          path: ~/.composer/cache
+          path: ~/.cache/composer
           key: composer-${{ hashFiles('composer.lock') }}
 
       - name: Install dependencies

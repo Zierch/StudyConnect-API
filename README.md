@@ -1,5 +1,7 @@
 # StudyConnect API 🎓
 
+[![Laravel CI](https://github.com/Zierch/StudyConnect-API/actions/workflows/laravel.yml/badge.svg)](https://github.com/Zierch/StudyConnect-API/actions/workflows/laravel.yml)
+
 REST API untuk aplikasi mobile **StudyConnect** (Android) — dibuat untuk tugas akhir SMK.
 Menangani autentikasi guru/siswa, kelas, materi, pengumuman, tugas, dan pengumpulan tugas.
 
