@@ -197,6 +197,61 @@ Semua path berawalan `/api`. Kolom **Peran** menandai pembatasan di controller (
 | GET | `/submission/{id}/get` | - | Detail pengumpulan |
 | PUT | `/submission/{id}` | guru | `score` (0–100) — status berubah jadi `graded` |
 
+### Mencoba API dari nol
+
+Tidak ada akun atau data contoh bawaan. Dua perintah pertama membuat guru dan
+siswa, lalu siswa bergabung ke kelas guru itu. Jalankan server lokal dulu
+(`php artisan serve`), lalu:
+
+```bash
+# 1. Daftar guru
+curl -s -X POST http://127.0.0.1:8000/api/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Bu Sari","email":"sari@contoh.test","role":"teacher","password":"rahasia123"}'
+
+# 2. Login — token di respons sudah berisi "Bearer "
+curl -s -X POST http://127.0.0.1:8000/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"sari@contoh.test","password":"rahasia123"}'
+```
+
+Simpan nilai `token` dari langkah 2, lalu pakai sebagai header. Ganti
+`<TOKEN>` di perintah berikut dengan nilai itu:
+
+```bash
+# 3. Buat kelas — respons 201 berisi "code" (8 karakter)
+curl -s -X POST http://127.0.0.1:8000/api/classes \
+  -H "Authorization: <TOKEN>" -H 'Content-Type: application/json' \
+  -d '{"name":"Matematika XI RPL 1","subject":"Matematika"}'
+
+# 4. Daftar siswa, login, lalu gabung pakai kode dari langkah 3
+curl -s -X POST http://127.0.0.1:8000/api/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Rina","email":"rina@contoh.test","role":"student","password":"rahasia123"}'
+
+curl -s -X POST http://127.0.0.1:8000/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"rina@contoh.test","password":"rahasia123"}'
+
+curl -s -X POST http://127.0.0.1:8000/api/classes/<KODE_KELAS>/join \
+  -H "Authorization: <TOKEN_SISWA>"
+
+# 5. Lihat kelas yang sudah diikuti siswa
+curl -s http://127.0.0.1:8000/api/classes -H "Authorization: <TOKEN_SISWA>"
+```
+
+Dua hal yang sering bikin bingung:
+
+- Nilai `token` dari `/api/login` **sudah** berprefiks `Bearer `, jadi kirim
+  apa adanya — jangan ditambahi `Bearer ` lagi.
+- Error validasi berbentuk datar `{"field": ["pesan"]}`, tanpa pembungkus
+  `errors`. Klien yang memakai helper standar Laravel (`assertJsonValidationErrors`,
+  `errors.*`) perlu menyesuaikan.
+
+Untuk melihat otorisasi berjalan, coba daftarkan guru lain lalu panggil
+`POST /api/classes/{id}` pada kelas milik guru pertama — responsnya `403`,
+walaupun perannya sama-sama `teacher`.
+
 ### Kode status
 
 | Kode | Arti |
